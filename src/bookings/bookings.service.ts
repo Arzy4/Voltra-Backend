@@ -128,13 +128,58 @@ export class BookingsService {
         userId: number,
         role: string
     ): Promise<BookingResponse> {
-        await this.findOne(id, userId, role);
+        const existingBookingResponse = await this.findOne(
+            id,
+            userId,
+            role
+        );
+
+        const existingBooking = existingBookingResponse.data;
+
+        const {
+            startTime,
+            durationMinutes,
+            slotId,
+            status,
+        } = updateBookingDto;
+
+        const data: any = {};
+
+        if (slotId !== undefined) {
+            data.slotId = slotId;
+        }
+
+        if (status !== undefined) {
+            data.status = status;
+        }
+
+        if (startTime !== undefined || durationMinutes !== undefined) {
+            const newStartTime = startTime
+            ? new Date(startTime)
+            : new Date(existingBooking.startTime);
+
+            const currentDurationMinutes =
+            (new Date(existingBooking.endTime).getTime() -
+                new Date(existingBooking.startTime).getTime()) /
+            (60 * 1000);
+
+            const newDurationMinutes =
+            durationMinutes ?? currentDurationMinutes;
+
+            const newEndTime = new Date(
+            newStartTime.getTime() +
+                newDurationMinutes * 60 * 1000
+            );
+
+            data.startTime = newStartTime;
+            data.endTime = newEndTime;
+        }
 
         const updatedBooking = await this.prisma.booking.update({
             where: {
-                id,
+            id,
             },
-            data: updateBookingDto,
+            data,
         });
 
         return {
