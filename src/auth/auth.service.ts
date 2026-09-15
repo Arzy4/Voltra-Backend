@@ -60,7 +60,15 @@ export class AuthService {
             expiresIn: '7d',
         });
 
-        return { accessToken, refreshToken };
+        return { 
+            accessToken,
+            refreshToken,
+            user: {
+                id: user.id,
+                fullName: user.fullName,
+                email: user.email,
+                role: user.role,
+            }, };
     }
 
     async refreshToken(refreshToken: string) {
