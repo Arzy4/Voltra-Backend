@@ -23,12 +23,41 @@ export class BookingsService {
     ): Promise<BookingsResponse> {
         const bookings =
             role === 'ADMIN'
-            ? await this.prisma.booking.findMany()
-            : await this.prisma.booking.findMany({
-                where: {
-                    userId: userId,
-                },
-            });
+                ? await this.prisma.booking.findMany({
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                fullName: true,
+                                email: true,
+                            },
+                    },
+                    slot: {
+                        include: {
+                            station: true,
+                        },
+                    },
+                    payment: true,
+                    },
+                    orderBy: {
+                        createdAt: 'desc',
+                    },
+                }) : await this.prisma.booking.findMany({
+                    where: {
+                        userId: userId,
+                    },
+                    include: {
+                        slot: {
+                            include: {
+                                station: true,
+                            },
+                        },
+                    payment: true,
+                    },
+                    orderBy: {
+                        createdAt: 'desc',
+                    },
+                });
 
         return {
             message: 'Bookings retrieved successfully',
