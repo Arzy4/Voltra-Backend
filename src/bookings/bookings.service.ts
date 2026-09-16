@@ -291,21 +291,34 @@ export class BookingsService {
         }
 
         if (existingPayment?.status === "PAID" && priceDifference < 0) {
-            const updatedBooking = await this.prisma.booking.update({
-                where: {
-                    id,
-                },
-                data,
-            });
+            const refundAmount = Math.abs(priceDifference);
+
+            const [updatedBooking] = await this.prisma.$transaction([
+                this.prisma.booking.update({
+                    where: {
+                        id,
+                    },
+                    data,
+                }),
+
+                this.prisma.payment.update({
+                    where: {
+                        bookingId: id,
+                    },
+                    data: {
+                        amount: estimatedCost,
+                    },
+                }),
+            ]);
 
             return {
-                message: "Booking updated. Refund required.",
+                message: "Booking updated and refund processed successfully.",
                 data: updatedBooking,
                 paymentAdjustment: {
                     type: "REFUND",
                     previousAmount: paidAmount,
                     newAmount: estimatedCost,
-                    amount: Math.abs(priceDifference),
+                    amount: refundAmount,
                 },
             };
         }
