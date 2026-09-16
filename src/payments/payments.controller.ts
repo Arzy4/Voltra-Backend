@@ -42,6 +42,23 @@ export class PaymentsController {
     return this.paymentsService.findOne(id, req.user.id, req.user.role);
   }
 
+  @ApiResponse({
+    status: 200,
+    description: 'Retrieve a booking adjustment for additional payment',
+  })
+  @UseGuards(JwtAuthGuard)
+  @Get("adjustments/:id")
+  findAdjustment(
+    @Param("id", ParseIntPipe) id: number,
+    @Request() req,
+  ) {
+    return this.paymentsService.findAdjustment(
+      id,
+      req.user.id,
+      req.user.role,
+    );
+  }
+
   @ApiResponse({ status: 201, description: 'Create a payment for the authenticated user' })
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -84,6 +101,24 @@ export class PaymentsController {
     @Request() req,
   ) {
     return this.paymentsService.completePayment(
+      id,
+      req.user.id,
+      req.user.role,
+    );
+  }
+
+  @ApiResponse({
+    status: 200,
+    description:
+      'Complete an additional payment and apply the booking adjustment',
+  })
+  @UseGuards(JwtAuthGuard)
+  @Patch("adjustments/:id/complete")
+  completeAdjustmentPayment(
+    @Param("id", ParseIntPipe) id: number,
+    @Request() req,
+  ) {
+    return this.paymentsService.completeAdjustmentPayment(
       id,
       req.user.id,
       req.user.role,

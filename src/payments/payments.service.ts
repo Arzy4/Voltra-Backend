@@ -82,6 +82,152 @@ export class PaymentsService {
         };
     }
 
+    async findAdjustment(
+        id: number,
+        userId: number,
+        role: string,
+    ) {
+        const adjustment =
+            await this.prisma.bookingAdjustment.findUnique({
+            where: {
+                id,
+            },
+            include: {
+                booking: {
+                include: {
+                    slot: {
+                    include: {
+                        station: true,
+                    },
+                    },
+                },
+                },
+            },
+            });
+
+        if (!adjustment) {
+            throw new NotFoundException(
+            'Booking adjustment not found',
+            );
+        }
+
+        if (
+            role !== 'ADMIN' &&
+            adjustment.booking.userId !== userId
+        ) {
+            throw new ForbiddenException(
+            'You are not allowed to access this booking adjustment',
+            );
+        }
+
+        return {
+            message: 'Booking adjustment retrieved successfully',
+            data: {
+            ...adjustment,
+            estimatedKwh: Number(adjustment.estimatedKwh),
+            estimatedCost: Number(adjustment.estimatedCost),
+            adjustmentAmount: Number(
+                adjustment.adjustmentAmount,
+            ),
+            },
+        };
+    }
+
+    async completeAdjustmentPayment(
+        id: number,
+        userId: number,
+        role: string,
+    ) {
+        const adjustment =
+            await this.prisma.bookingAdjustment.findUnique({
+            where: {
+                id,
+            },
+            include: {
+                booking: true,
+            },
+            });
+
+        if (!adjustment) {
+            throw new NotFoundException(
+            'Booking adjustment not found',
+            );
+        }
+
+        if (
+            role !== 'ADMIN' &&
+            adjustment.booking.userId !== userId
+        ) {
+            throw new ForbiddenException(
+            'You are not allowed to complete this additional payment',
+            );
+        }
+
+        if (adjustment.status !== 'PENDING') {
+            throw new ForbiddenException(
+            'This booking adjustment is no longer pending',
+            );
+        }
+
+        if (adjustment.paymentStatus === 'PAID') {
+            throw new ForbiddenException(
+            'This additional payment has already been completed',
+            );
+        }
+
+        const transactionId =
+            `VOLTRA-ADJ-${Date.now()}-${Math.floor(
+            1000 + Math.random() * 9000,
+            )}`;
+
+        const [updatedAdjustment, updatedBooking] =
+            await this.prisma.$transaction([
+            this.prisma.bookingAdjustment.update({
+                where: {
+                id,
+                },
+                data: {
+                paymentStatus: 'PAID',
+                transactionId,
+                status: 'COMPLETED',
+                },
+            }),
+
+            this.prisma.booking.update({
+                where: {
+                id: adjustment.bookingId,
+                },
+                data: {
+                slotId: adjustment.slotId,
+                startTime: adjustment.startTime,
+                endTime: adjustment.endTime,
+                estimatedKwh: adjustment.estimatedKwh,
+                estimatedCost: adjustment.estimatedCost,
+                },
+            }),
+            ]);
+
+        return {
+            message:
+            'Additional payment completed and booking updated successfully',
+            data: {
+            adjustment: {
+                ...updatedAdjustment,
+                estimatedKwh: Number(
+                updatedAdjustment.estimatedKwh,
+                ),
+                estimatedCost: Number(
+                updatedAdjustment.estimatedCost,
+                ),
+                adjustmentAmount: Number(
+                updatedAdjustment.adjustmentAmount,
+                ),
+            },
+            booking: updatedBooking,
+            },
+        };
+    }
+
     async create(
         createPaymentDto: CreatePaymentDto,
         userId: number,

@@ -165,6 +165,12 @@ export class BookingsService {
 
         const existingBooking = existingBookingResponse.data;
 
+        const existingPayment = await this.prisma.payment.findUnique({
+            where: {
+                bookingId: id,
+            },
+        });
+
         const {
             startTime,
             durationMinutes,
@@ -204,9 +210,129 @@ export class BookingsService {
             data.endTime = newEndTime;
         }
 
+        const finalSlotId = slotId ?? existingBooking.slotId;
+
+        const finalDurationMinutes =
+        durationMinutes ??
+        (
+            new Date(existingBooking.endTime).getTime() -
+            new Date(existingBooking.startTime).getTime()
+        ) /
+            (60 * 1000);
+
+        const selectedSlot =
+            await this.prisma.chargingSlot.findUnique({
+                where: {
+                    id: finalSlotId,
+                },
+        });
+
+        if (!selectedSlot) {
+            throw new NotFoundException(
+                `Charging slot ID ${finalSlotId} not found`,
+            );
+        }
+
+        const estimatedKwh = Number(selectedSlot.powerKw) * (finalDurationMinutes / 60);
+
+        const estimatedCost = estimatedKwh * Number(selectedSlot.pricePerKwh);
+
+        data.estimatedKwh = estimatedKwh;
+        data.estimatedCost = estimatedCost;
+
+        const paidAmount = existingPayment?.status === "PAID"
+            ? Number(existingPayment.amount)
+            : 0;
+
+        const priceDifference = estimatedCost - paidAmount;
+
+        if (existingPayment?.status === "PAID" && priceDifference > 0) {
+            const proposedStartTime =
+                data.startTime ?? new Date(existingBooking.startTime);
+
+            const proposedEndTime =
+                data.endTime ?? new Date(existingBooking.endTime);
+
+            await this.prisma.bookingAdjustment.updateMany({
+                where: {
+                bookingId: id,
+                status: "PENDING",
+                },
+                data: {
+                status: "CANCELLED",
+                },
+            });
+
+            const adjustment =
+                await this.prisma.bookingAdjustment.create({
+                data: {
+                    bookingId: id,
+                    slotId: finalSlotId,
+                    startTime: proposedStartTime,
+                    endTime: proposedEndTime,
+                    estimatedKwh,
+                    estimatedCost,
+                    adjustmentAmount: priceDifference,
+                    status: "PENDING",
+                },
+                });
+
+            return {
+                message: "Additional payment required",
+                data: existingBooking,
+                paymentAdjustment: {
+                type: "ADDITIONAL_PAYMENT",
+                previousAmount: paidAmount,
+                newAmount: estimatedCost,
+                amount: priceDifference,
+                adjustmentId: adjustment.id,
+                },
+            };
+        }
+
+        if (existingPayment?.status === "PAID" && priceDifference < 0) {
+            const updatedBooking = await this.prisma.booking.update({
+                where: {
+                    id,
+                },
+                data,
+            });
+
+            return {
+                message: "Booking updated. Refund required.",
+                data: updatedBooking,
+                paymentAdjustment: {
+                    type: "REFUND",
+                    previousAmount: paidAmount,
+                    newAmount: estimatedCost,
+                    amount: Math.abs(priceDifference),
+                },
+            };
+        }
+
+        if (existingPayment?.status === "PAID" && priceDifference === 0) {
+            const updatedBooking = await this.prisma.booking.update({
+                where: {
+                    id,
+                },
+                data,
+            });
+
+            return {
+                message: "Booking updated successfully. No payment adjustment required.",
+                data: updatedBooking,
+                paymentAdjustment: {
+                    type: "NO_CHANGE",
+                    previousAmount: paidAmount,
+                    newAmount: estimatedCost,
+                    amount: 0,
+                },
+            };
+        }
+
         const updatedBooking = await this.prisma.booking.update({
             where: {
-            id,
+                id,
             },
             data,
         });

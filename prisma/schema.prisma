@@ -52,6 +52,18 @@ enum PaymentMethod {
   E_WALLET
 }
 
+enum BookingAdjustmentStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum AdjustmentPaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
 model User {
   id           Int       @id @default(autoincrement())
   fullName     String    @map("full_name")
@@ -114,6 +126,7 @@ model Booking {
   slot          ChargingSlot  @relation(fields: [slotId], references: [id])
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   payment       Payment?
+  adjustments   BookingAdjustment[]
 
   @@map("bookings")
 }
@@ -130,4 +143,25 @@ model Payment {
   booking       Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@map("payments")
+}
+
+model BookingAdjustment {
+  id               Int                     @id @default(autoincrement())
+  bookingId        Int                     @map("booking_id")
+  slotId           Int                     @map("slot_id")
+  startTime        DateTime                @map("start_time")
+  endTime          DateTime                @map("end_time")
+  estimatedKwh     Decimal                 @map("estimated_kwh") @db.Decimal(10, 2)
+  estimatedCost    Decimal                 @map("estimated_cost") @db.Decimal(12, 2)
+  adjustmentAmount Decimal                 @map("adjustment_amount") @db.Decimal(12, 2)
+  status           BookingAdjustmentStatus @default(PENDING)
+  paymentStatus    AdjustmentPaymentStatus @default(PENDING) @map("payment_status")
+  paymentMethod    PaymentMethod?          @map("payment_method")
+  transactionId    String?                 @unique @map("transaction_id")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+
+  booking          Booking                 @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("booking_adjustments")
 }
