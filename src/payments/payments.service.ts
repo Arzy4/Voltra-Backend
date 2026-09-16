@@ -181,31 +181,40 @@ export class PaymentsService {
             )}`;
 
         const [updatedAdjustment, updatedBooking] =
-            await this.prisma.$transaction([
-            this.prisma.bookingAdjustment.update({
+            await this.prisma.$transaction([this.prisma.bookingAdjustment.update({
                 where: {
-                id,
+                    id,
                 },
                 data: {
-                paymentStatus: 'PAID',
-                transactionId,
-                status: 'COMPLETED',
+                    paymentStatus: 'PAID',
+                    transactionId,
+                    status: 'COMPLETED',
                 },
             }),
 
             this.prisma.booking.update({
                 where: {
-                id: adjustment.bookingId,
+                    id: adjustment.bookingId,
                 },
                 data: {
-                slotId: adjustment.slotId,
-                startTime: adjustment.startTime,
-                endTime: adjustment.endTime,
-                estimatedKwh: adjustment.estimatedKwh,
-                estimatedCost: adjustment.estimatedCost,
+                    slotId: adjustment.slotId,
+                    startTime: adjustment.startTime,
+                    endTime: adjustment.endTime,
+                    estimatedKwh: adjustment.estimatedKwh,
+                    estimatedCost: adjustment.estimatedCost,
                 },
             }),
-            ]);
+
+            // Update the total amount paid for this booking
+            this.prisma.payment.update({
+                where: {
+                    bookingId: adjustment.bookingId,
+                },
+                data: {
+                    amount: adjustment.estimatedCost,
+                },
+            }),
+        ]);
 
         return {
             message:
