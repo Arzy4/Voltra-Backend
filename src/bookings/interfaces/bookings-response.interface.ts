@@ -2,7 +2,9 @@ import { Booking } from './bookings.interface';
 
 export interface BookingResponse {
     message: string;
-    data: Booking;
+    data: Booking & {
+      netPaidAmount?: number;
+    };
 
     paymentAdjustment?: {
     type:

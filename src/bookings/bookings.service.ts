@@ -82,6 +82,11 @@ export class BookingsService {
                     },
                 },
                 payment: true,
+                adjustments: {
+                    where: {
+                        status: "COMPLETED",
+                    },
+                },
             },
         });
 
@@ -95,11 +100,32 @@ export class BookingsService {
             );
         }
 
-        return {
-            message: `Booking ID ${id} retrieved successfully`,
-            data: booking,
-        };
-    }
+        const adjustmentBalance = booking.adjustments.reduce((total, adjustment) => {
+        const amount = Number(adjustment.adjustmentAmount);
+
+            if (adjustment.type === "ADDITIONAL_PAYMENT") {
+                return total + amount;
+            }
+
+            if (adjustment.type === "REFUND") {
+                return total - amount;
+            }
+
+            return total;
+        }, 0);
+
+        const netPaidAmount = booking.payment?.status === "PAID"
+            ? Number(booking.payment.amount) + adjustmentBalance
+            : 0;
+
+            return {
+                message: `Booking ID ${id} retrieved successfully`,
+                data: {
+                    ...booking,
+                    netPaidAmount,
+                },
+            };
+        }
 
     async create(
         createBookingDto: CreateBookingDto,
