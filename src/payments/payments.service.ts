@@ -204,16 +204,6 @@ export class PaymentsService {
                     estimatedCost: adjustment.estimatedCost,
                 },
             }),
-
-            // Update the total amount paid for this booking
-            this.prisma.payment.update({
-                where: {
-                    bookingId: adjustment.bookingId,
-                },
-                data: {
-                    amount: adjustment.estimatedCost,
-                },
-            }),
         ]);
 
         return {
@@ -234,6 +224,98 @@ export class PaymentsService {
             },
             booking: updatedBooking,
             },
+        };
+    }
+
+    async findHistory(
+        userId: number,
+        role: string,
+    ) {
+        // Get original booking payments
+        const payments = await this.prisma.payment.findMany({
+            where:
+            role === "ADMIN"
+                ? {}
+                : {
+                    booking: {
+                    userId,
+                    },
+                },
+            include: {
+            booking: {
+                select: {
+                id: true,
+                bookingCode: true,
+                },
+            },
+            },
+        });
+
+        // Get additional payments + refunds
+        const adjustments =
+            await this.prisma.bookingAdjustment.findMany({
+            where:
+                role === "ADMIN"
+                ? {
+                    status: "COMPLETED",
+                    }
+                : {
+                    status: "COMPLETED",
+                    booking: {
+                        userId,
+                    },
+                    },
+            include: {
+                booking: {
+                select: {
+                    id: true,
+                    bookingCode: true,
+                },
+                },
+            },
+            });
+
+        const paymentHistory = [
+            ...payments.map((payment) => ({
+            id: `PAYMENT-${payment.id}`,
+            bookingId: payment.bookingId,
+            bookingCode: payment.booking.bookingCode,
+
+            type: "PAYMENT",
+
+            amount: Number(payment.amount),
+            status: payment.status,
+            paymentMethod: payment.paymentMethod,
+            transactionId: payment.transactionId,
+
+            createdAt: payment.createdAt,
+            })),
+
+            ...adjustments.map((adjustment) => ({
+            id: `ADJUSTMENT-${adjustment.id}`,
+            bookingId: adjustment.bookingId,
+            bookingCode: adjustment.booking.bookingCode,
+
+            type: adjustment.type,
+
+            amount: Number(adjustment.adjustmentAmount),
+            status: adjustment.paymentStatus,
+            paymentMethod: adjustment.paymentMethod,
+            transactionId: adjustment.transactionId,
+
+            createdAt: adjustment.createdAt,
+            })),
+        ];
+
+        paymentHistory.sort(
+            (a, b) =>
+            new Date(b.createdAt).getTime() -
+            new Date(a.createdAt).getTime(),
+        );
+
+        return {
+            message: "Payment history retrieved successfully",
+            data: paymentHistory,
         };
     }
 

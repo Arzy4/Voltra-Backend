@@ -240,8 +240,29 @@ export class BookingsService {
         data.estimatedKwh = estimatedKwh;
         data.estimatedCost = estimatedCost;
 
+        const completedAdjustments = await this.prisma.bookingAdjustment.findMany({
+            where: {
+            bookingId: id,
+            status: "COMPLETED",
+            },
+        });
+
+        const adjustmentBalance = completedAdjustments.reduce((total, adjustment) => {
+            const amount = Number(adjustment.adjustmentAmount);
+
+            if (adjustment.type === "ADDITIONAL_PAYMENT") {
+            return total + amount;
+            }
+
+            if (adjustment.type === "REFUND") {
+            return total - amount;
+            }
+
+            return total;
+        }, 0);
+
         const paidAmount = existingPayment?.status === "PAID"
-            ? Number(existingPayment.amount)
+            ?  Number(existingPayment.amount) + adjustmentBalance
             : 0;
 
         const priceDifference = estimatedCost - paidAmount;
@@ -273,6 +294,7 @@ export class BookingsService {
                     estimatedKwh,
                     estimatedCost,
                     adjustmentAmount: priceDifference,
+                    type: "ADDITIONAL_PAYMENT",
                     status: "PENDING",
                 },
                 });
@@ -293,35 +315,58 @@ export class BookingsService {
         if (existingPayment?.status === "PAID" && priceDifference < 0) {
             const refundAmount = Math.abs(priceDifference);
 
+            const refundTransactionId =
+                `VOLTRA-REF-${Date.now()}-${Math.floor(
+                1000 + Math.random() * 9000
+                )}`;
+
             const [updatedBooking] = await this.prisma.$transaction([
+                // Apply the cheaper booking
                 this.prisma.booking.update({
-                    where: {
-                        id,
-                    },
-                    data,
+                where: {
+                    id,
+                },
+                data,
                 }),
 
-                this.prisma.payment.update({
-                    where: {
-                        bookingId: id,
-                    },
-                    data: {
-                        amount: estimatedCost,
-                    },
+                // Save the refund transaction in history
+                this.prisma.bookingAdjustment.create({
+                data: {
+                    bookingId: id,
+                    slotId: finalSlotId,
+                    startTime:
+                    data.startTime ??
+                    new Date(existingBooking.startTime),
+                    endTime:
+                    data.endTime ??
+                    new Date(existingBooking.endTime),
+                    estimatedKwh,
+                    estimatedCost,
+                    adjustmentAmount: refundAmount,
+
+                    type: "REFUND",
+
+                    status: "COMPLETED",
+                    paymentStatus: "PAID",
+                    paymentMethod:
+                    existingPayment.paymentMethod,
+                    transactionId: refundTransactionId,
+                },
                 }),
             ]);
 
             return {
-                message: "Booking updated and refund processed successfully.",
+                message:
+                "Booking updated and refund processed successfully.",
                 data: updatedBooking,
                 paymentAdjustment: {
-                    type: "REFUND",
-                    previousAmount: paidAmount,
-                    newAmount: estimatedCost,
-                    amount: refundAmount,
+                type: "REFUND",
+                previousAmount: paidAmount,
+                newAmount: estimatedCost,
+                amount: refundAmount,
                 },
             };
-        }
+            }
 
         if (existingPayment?.status === "PAID" && priceDifference === 0) {
             const updatedBooking = await this.prisma.booking.update({

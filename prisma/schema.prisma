@@ -64,6 +64,11 @@ enum AdjustmentPaymentStatus {
   FAILED
 }
 
+enum BookingAdjustmentType {
+  ADDITIONAL_PAYMENT
+  REFUND
+}
+
 model User {
   id           Int       @id @default(autoincrement())
   fullName     String    @map("full_name")
@@ -154,6 +159,7 @@ model BookingAdjustment {
   estimatedKwh     Decimal                 @map("estimated_kwh") @db.Decimal(10, 2)
   estimatedCost    Decimal                 @map("estimated_cost") @db.Decimal(12, 2)
   adjustmentAmount Decimal                 @map("adjustment_amount") @db.Decimal(12, 2)
+  type             BookingAdjustmentType   @default(ADDITIONAL_PAYMENT)
   status           BookingAdjustmentStatus @default(PENDING)
   paymentStatus    AdjustmentPaymentStatus @default(PENDING) @map("payment_status")
   paymentMethod    PaymentMethod?          @map("payment_method")

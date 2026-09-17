@@ -32,6 +32,15 @@ export class PaymentsController {
     );
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('history')
+  findHistory(@Request() req: any) {
+    return this.paymentsService.findHistory(
+      req.user.id,
+      req.user.role,
+    );
+  }
+
   @ApiResponse({ status: 200, description: 'Retrieve a payment by ID belonging to the authenticated user' })
   @UseGuards(JwtAuthGuard)
   @Get(":id")
