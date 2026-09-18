@@ -438,7 +438,7 @@ Booking
 
 The Entity Relationship Diagram illustrates the PostgreSQL database structure used by the VOLTRA backend.
 
-![VOLTRA ERD](./voltra-backend/docs/voltra_ERD.png)
+![VOLTRA ERD](./docs/voltra_ERD.png)
 
 ---
 
