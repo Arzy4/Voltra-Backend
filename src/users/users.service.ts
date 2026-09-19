@@ -138,6 +138,12 @@ export class UsersService {
             );
         }
 
+        if (role !== 'ADMIN' && updateUserDto.role !== undefined) {
+            throw new ForbiddenException(
+                'Only admins can change user roles'
+            );
+        }
+
         const updatedUser = await this.prisma.user.update({
             where: {
                 id,
