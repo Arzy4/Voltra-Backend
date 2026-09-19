@@ -206,6 +206,124 @@ export class BookingsService {
 
         const data: any = {};
 
+        // Handle booking cancellation separately
+        if (status === "CANCELLED") {
+            const completedAdjustments =
+                await this.prisma.bookingAdjustment.findMany({
+                    where: {
+                        bookingId: id,
+                        status: "COMPLETED",
+                    },
+                });
+
+            const adjustmentBalance = completedAdjustments.reduce(
+                (total, adjustment) => {
+                    const amount = Number(adjustment.adjustmentAmount);
+
+                    if (adjustment.type === "ADDITIONAL_PAYMENT") {
+                        return total + amount;
+                    }
+
+                    if (adjustment.type === "REFUND") {
+                        return total - amount;
+                    }
+
+                    return total;
+                },
+                0,
+            );
+
+            const netPaidAmount =
+                existingPayment?.status === "PAID"
+                    ? Number(existingPayment.amount) + adjustmentBalance
+                    : 0;
+
+            // Cancel any unfinished adjustment
+            await this.prisma.bookingAdjustment.updateMany({
+                where: {
+                    bookingId: id,
+                    status: "PENDING",
+                },
+                data: {
+                    status: "CANCELLED",
+                },
+            });
+
+            // Paid booking → cancel booking and refund current net paid
+            if (netPaidAmount > 0 && existingPayment) {
+                const refundTransactionId =
+                    `VOLTRA-REF-${Date.now()}-${Math.floor(
+                        1000 + Math.random() * 9000
+                    )}`;
+
+                const [updatedBooking] =
+                    await this.prisma.$transaction([
+                        this.prisma.booking.update({
+                            where: {
+                                id,
+                            },
+                            data: {
+                                status: "CANCELLED",
+                            },
+                        }),
+
+                        this.prisma.bookingAdjustment.create({
+                            data: {
+                                bookingId: id,
+                                slotId: existingBooking.slotId,
+                                startTime: new Date(
+                                    existingBooking.startTime
+                                ),
+                                endTime: new Date(
+                                    existingBooking.endTime
+                                ),
+                                estimatedKwh:
+                                    Number(existingBooking.estimatedKwh ?? 0),
+                                estimatedCost:
+                                    Number(existingBooking.estimatedCost ?? 0),
+
+                                adjustmentAmount: netPaidAmount,
+
+                                type: "REFUND",
+                                status: "COMPLETED",
+                                paymentStatus: "PAID",
+                                paymentMethod:
+                                    existingPayment.paymentMethod,
+                                transactionId: refundTransactionId,
+                            },
+                        }),
+                    ]);
+
+                return {
+                    message:
+                        "Booking cancelled and refund processed successfully.",
+                    data: updatedBooking,
+                    paymentAdjustment: {
+                        type: "REFUND",
+                        previousAmount: netPaidAmount,
+                        newAmount: 0,
+                        amount: netPaidAmount,
+                    },
+                };
+            }
+
+            // Unpaid booking → just cancel it
+            const cancelledBooking =
+                await this.prisma.booking.update({
+                    where: {
+                        id,
+                    },
+                    data: {
+                        status: "CANCELLED",
+                    },
+                });
+
+            return {
+                message: "Booking cancelled successfully.",
+                data: cancelledBooking,
+            };
+        }
+
         if (slotId !== undefined) {
             data.slotId = slotId;
         }
