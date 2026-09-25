@@ -69,7 +69,8 @@ export class UsersController {
   }
 
   @ApiResponse({ status: 201, description: 'Create a new user account (Register)' })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   @Post()
   create(
     @Body() createUserDto: CreateUserDto,

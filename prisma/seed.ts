@@ -15,6 +15,10 @@ import {
 } from "../src/generated/prisma/client";
 
 import { ChargingStationsData } from "./data/chargingStationsData";
+import { KpiData } from "./data/kpiData";
+import { ChargingTypePerformanceData } from "./data/chargingTypePerformances";
+import { PaymentStatusData } from "./data/paymentStatus";
+import { RevenueOverviewData } from "./data/revenueOverview";
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -493,6 +497,83 @@ async function main(): Promise<void> {
       create: payment,
     });
   }
+
+  // ---------------------------------------
+  // Dashboard KPI
+  // ---------------------------------------
+
+  await prisma.dashboardKpi.deleteMany();
+
+  await prisma.dashboardKpi.create({
+    data: {
+      totalRevenue: KpiData.totalRevenue,
+      totalBookings: KpiData.totalBookings,
+      newBookings: KpiData.newBookings,
+      completedBookings: KpiData.completedBookings,
+      availableStations: KpiData.availableStations,
+      availableChargingSlots: KpiData.availableChargingSlots,
+    },
+  });
+
+  console.log("Dashboard KPI data seeded successfully.");
+
+    // ---------------------------------------
+  // Charging Type Performance
+  // ---------------------------------------
+
+  await prisma.chargingTypePerformance.deleteMany();
+
+  for (const performance of ChargingTypePerformanceData) {
+    await prisma.chargingTypePerformance.create({
+      data: {
+        type: performance.type as ChargerType,
+        bookings: performance.bookings,
+        revenue: performance.revenue,
+      },
+    });
+  }
+
+  console.log(
+    "Charging type performance data seeded successfully.",
+  );
+
+  // ---------------------------------------
+  // Payment Status Statistics
+  // ---------------------------------------
+
+  await prisma.paymentStatusStatistic.deleteMany();
+
+  for (const paymentStatus of PaymentStatusData) {
+    await prisma.paymentStatusStatistic.create({
+      data: {
+        status: paymentStatus.status as PaymentStatus,
+        value: paymentStatus.value,
+      },
+    });
+  }
+
+  console.log(
+    "Payment status statistics data seeded successfully.",
+  );
+
+    // ---------------------------------------
+  // Revenue Overview
+  // ---------------------------------------
+
+  await prisma.revenueOverview.deleteMany();
+
+  for (const revenueOverview of RevenueOverviewData) {
+    await prisma.revenueOverview.create({
+      data: {
+        month: revenueOverview.month,
+        revenue: revenueOverview.revenue,
+      },
+    });
+  }
+
+  console.log(
+    "Revenue overview data seeded successfully.",
+  );
 
   const totalSlots = createdStations.reduce(
     (total, station) =>

@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ThrottlerModule } from '@nestjs/throttler/dist/throttler.module';
 import { PaymentsModule } from './payments/payments.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -27,7 +28,7 @@ import { PaymentsModule } from './payments/payments.module';
     PrismaModule,
     StationsModule, 
     ChargingSlotsModule, 
-    BookingsModule, UsersModule, AuthModule, PaymentsModule, 
+    BookingsModule, UsersModule, AuthModule, PaymentsModule, DashboardModule, 
   ],
   controllers: [AppController],
   providers: [AppService],

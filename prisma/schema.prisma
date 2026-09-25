@@ -84,17 +84,17 @@ model User {
 }
 
 model ChargingStation {
-  id          Int            @id @default(autoincrement())
-  name        String
-  location    String
-  area        String
-  address     String
-  latitude    Decimal        @db.Decimal(10, 7)
-  longitude   Decimal        @db.Decimal(10, 7)
-  status      StationStatus  @default(AVAILABLE)
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
-  slots       ChargingSlot[]
+  id        Int            @id @default(autoincrement())
+  name      String
+  location  String
+  area      String
+  address   String
+  latitude  Decimal        @db.Decimal(10, 7)
+  longitude Decimal        @db.Decimal(10, 7)
+  status    StationStatus  @default(AVAILABLE)
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  slots     ChargingSlot[]
 
   @@map("charging_stations")
 }
@@ -117,19 +117,19 @@ model ChargingSlot {
 }
 
 model Booking {
-  id            Int           @id @default(autoincrement())
-  userId        Int           @map("user_id")
-  slotId        Int           @map("slot_id")
-  bookingCode   String        @unique @map("booking_code")
-  startTime     DateTime      @map("start_time")
-  endTime       DateTime      @map("end_time")
-  estimatedKwh  Decimal?      @map("estimated_kwh") @db.Decimal(10, 2)
-  estimatedCost Decimal?      @map("estimated_cost") @db.Decimal(12, 2)
-  status        BookingStatus @default(PENDING)
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
-  slot          ChargingSlot  @relation(fields: [slotId], references: [id])
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            Int                 @id @default(autoincrement())
+  userId        Int                 @map("user_id")
+  slotId        Int                 @map("slot_id")
+  bookingCode   String              @unique @map("booking_code")
+  startTime     DateTime            @map("start_time")
+  endTime       DateTime            @map("end_time")
+  estimatedKwh  Decimal?            @map("estimated_kwh") @db.Decimal(10, 2)
+  estimatedCost Decimal?            @map("estimated_cost") @db.Decimal(12, 2)
+  status        BookingStatus       @default(PENDING)
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  slot          ChargingSlot        @relation(fields: [slotId], references: [id])
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   payment       Payment?
   adjustments   BookingAdjustment[]
 
@@ -167,7 +167,44 @@ model BookingAdjustment {
   createdAt        DateTime                @default(now()) @map("created_at")
   updatedAt        DateTime                @updatedAt @map("updated_at")
 
-  booking          Booking                 @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@map("booking_adjustments")
+}
+
+model DashboardKpi {
+  id                     Int     @id @default(autoincrement())
+  totalRevenue           Decimal @map("total_revenue") @db.Decimal(14, 2)
+  totalBookings          Int     @map("total_bookings")
+  newBookings            Int     @map("new_bookings")
+  completedBookings      Int     @map("completed_bookings")
+  availableStations      Int     @map("available_stations")
+  availableChargingSlots Int     @map("available_charging_slots")
+
+  @@map("dashboard_kpis")
+}
+
+model ChargingTypePerformance {
+  id       Int         @id @default(autoincrement())
+  type     ChargerType @unique
+  bookings Int
+  revenue  Decimal     @db.Decimal(14, 2)
+
+  @@map("charging_type_performances")
+}
+
+model PaymentStatusStatistic {
+  id     Int           @id @default(autoincrement())
+  status PaymentStatus @unique
+  value  Int
+
+  @@map("payment_status_statistics")
+}
+
+model RevenueOverview {
+  id      Int     @id @default(autoincrement())
+  month   String  @unique
+  revenue Decimal @db.Decimal(14, 2)
+
+  @@map("revenue_overview")
 }
