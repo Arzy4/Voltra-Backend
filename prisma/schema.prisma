@@ -79,6 +79,7 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   bookings     Booking[]
+  vehicles     Vehicle[]
 
   @@map("users")
 }
@@ -207,4 +208,20 @@ model RevenueOverview {
   revenue Decimal @db.Decimal(14, 2)
 
   @@map("revenue_overview")
+}
+
+model Vehicle {
+  id                      Int         @id @default(autoincrement())
+  userId                  Int         @map("user_id")
+  vehicleName             String      @map("vehicle_name")
+  brand                   String
+  model                   String
+  preferredChargerType    ChargerType @map("preferred_charger_type")
+  defaultChargingDuration Int         @map("default_charging_duration")
+  createdAt               DateTime    @default(now()) @map("created_at")
+  updatedAt               DateTime    @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("vehicles")
 }
